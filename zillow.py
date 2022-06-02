@@ -24,44 +24,33 @@ def parse(zipcode,filter=None):
 		}
 		response = requests.get(url,headers=headers)
 		print(response.status_code)
-		parser = html.fromstring(response.text)
-		search_results = parser.xpath("//div[@id='search-results']//article")
+		parser = html.fromstring(response.content)
+		search_results = parser.xpath("//*[@class='list-card-link list-card-link-top-margin']")
+		# print(parser.xpath("//*[@class='list-card-link list-card-link-top-margin']")[0].attrib.get("href"))
+		properties_url_list = []
 		properties_list = []
-		
-		for properties in search_results:
-			raw_address = properties.xpath(".//span[@itemprop='address']//span[@itemprop='streetAddress']//text()")
-			raw_city = properties.xpath(".//span[@itemprop='address']//span[@itemprop='addressLocality']//text()")
-			raw_state= properties.xpath(".//span[@itemprop='address']//span[@itemprop='addressRegion']//text()")
-			raw_postal_code= properties.xpath(".//span[@itemprop='address']//span[@itemprop='postalCode']//text()")
-			raw_price = properties.xpath(".//span[@class='zsg-photo-card-price']//text()")
-			raw_info = properties.xpath(".//span[@class='zsg-photo-card-info']//text()")
-			raw_broker_name = properties.xpath(".//span[@class='zsg-photo-card-broker-name']//text()")
-			url = properties.xpath(".//a[contains(@class,'overlay-link')]/@href")
-			raw_title = properties.xpath(".//h4//text()")
-			
+		for result in search_results:
+			properties_url_list.append(result.get("href"))
+
+		for property_url in properties_url_list:
+			current_property = html.fromstring(requests.get(property_url, headers=headers).content)
+			raw_address = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[6]/div[1]/div[1]/div[2]/div/h1/span[1]//text()")
+			raw_address_line_2 = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[2]/div/div[2]/div/h1/span[2]/text()[2]")
+			raw_price = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[2]/div/div[1]/div/div/span/span/span//text()")
+			url = property_url
+
 			address = ' '.join(' '.join(raw_address).split()) if raw_address else None
-			city = ''.join(raw_city).strip() if raw_city else None
-			state = ''.join(raw_state).strip() if raw_state else None
-			postal_code = ''.join(raw_postal_code).strip() if raw_postal_code else None
+			address_line_2 = ''.join(raw_address_line_2).strip() if raw_address_line_2 else None
 			price = ''.join(raw_price).strip() if raw_price else None
-			info = ' '.join(' '.join(raw_info).split()).replace(u"\xb7",',')
-			broker = ''.join(raw_broker_name).strip() if raw_broker_name else None
-			title = ''.join(raw_title) if raw_title else None
-			property_url = "https://www.zillow.com"+url[0] if url else None 
-			is_forsale = properties.xpath('.//span[@class="zsg-icon-for-sale"]')
-			properties = {
+			property_url = "https://www.zillow.com"+url[0] if url else None
+			is_forsale = property.xpath('.//span[@class="zsg-icon-for-sale"]')
+			property = {
 							'address':address,
-							'city':city,
-							'state':state,
-							'postal_code':postal_code,
+							'address_line_2':address_line_2,
 							'price':price,
-							'facts and features':info,
-							'real estate provider':broker,
 							'url':property_url,
-							'title':title
 			}
-			if is_forsale:
-				properties_list.append(properties)
+			properties_list.append(property)
 		return properties_list
 		# except:
 		# 	print ("Failed to process the page",url)
@@ -82,7 +71,7 @@ if __name__=="__main__":
 	scraped_data = parse(zipcode,sort)
 	print ("Writing data to output file")
 	with open("properties-%s.csv"%(zipcode),'wb')as csvfile:
-		fieldnames = ['title','address','city','state','postal_code','price','facts and features','real estate provider','url']
+		fieldnames = ['address', 'address_line_2' ,'price','url']
 		writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 		writer.writeheader()
 		for row in  scraped_data:
