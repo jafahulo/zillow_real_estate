@@ -11,39 +11,44 @@ def parse(zipcode,filter=None):
 		url = "https://www.zillow.com/homes/for_sale/{0}/0_singlestory/pricea_sort/".format(zipcode)
 	else:
 		url = "https://www.zillow.com/homes/for_sale/{0}_rb/?fromHomePage=true&shouldFireSellPageImplicitClaimGA=false&fromHomePageTab=buy".format(zipcode)
-	
+
+	def get_response(url_input):
+
+		response = requests.get(url_input, headers=headers)
+		print(response.status_code)
+		html_response = html.fromstring(response.content)
+		return html_response
+
+	headers = {
+		'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+		'accept-encoding': 'gzip, deflate, sdch, br',
+		'accept-language': 'en-GB,en;q=0.8,en-US;q=0.6,ml;q=0.4',
+		'cache-control': 'max-age=0',
+		'upgrade-insecure-requests': '1',
+		'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
+	}
+
 	for i in range(5):
 		# try:
-		headers= {
-					'accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-					'accept-encoding':'gzip, deflate, sdch, br',
-					'accept-language':'en-GB,en;q=0.8,en-US;q=0.6,ml;q=0.4',
-					'cache-control':'max-age=0',
-					'upgrade-insecure-requests':'1',
-					'user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
-		}
-		response = requests.get(url,headers=headers)
-		print(response.status_code)
-		parser = html.fromstring(response.content)
-		search_results = parser.xpath("//*[@class='list-card-link list-card-link-top-margin']")
+		parser = get_response(url)
+		properties_url_list = parser.xpath("//*[@class='list-card-link list-card-link-top-margin']/@href")
 		# print(parser.xpath("//*[@class='list-card-link list-card-link-top-margin']")[0].attrib.get("href"))
-		properties_url_list = []
+		# properties_url_list = []
 		properties_list = []
-		for result in search_results:
-			properties_url_list.append(result.get("href"))
+		# for result in search_results:
+		# 	properties_url_list.append(result.get("href"))
 
 		for property_url in properties_url_list:
-			current_property = html.fromstring(requests.get(property_url, headers=headers).content)
+			current_property = get_response(str(property_url))
 			raw_address = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[6]/div[1]/div[1]/div[2]/div/h1/span[1]//text()")
 			raw_address_line_2 = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[2]/div/div[2]/div/h1/span[2]/text()[2]")
 			raw_price = current_property.xpath("/html/body/div[1]/div[6]/div/div[1]/div/div/div[2]/div[4]/div[2]/div/div[1]/div/div/span/span/span//text()")
-			url = property_url
 
 			address = ' '.join(' '.join(raw_address).split()) if raw_address else None
 			address_line_2 = ''.join(raw_address_line_2).strip() if raw_address_line_2 else None
 			price = ''.join(raw_price).strip() if raw_price else None
 			property_url = "https://www.zillow.com"+url[0] if url else None
-			is_forsale = property.xpath('.//span[@class="zsg-icon-for-sale"]')
+			# is_forsale = property.xpath('.//span[@class="zsg-icon-for-sale"]')
 			property = {
 							'address':address,
 							'address_line_2':address_line_2,
